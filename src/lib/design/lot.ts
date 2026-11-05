@@ -149,8 +149,6 @@ export type Disposition = 'dessous' | 'dessus' | 'droite' | 'gauche' | 'droiteV'
 /** Hauteur minimale (mm) pour mettre l'ID sous le QR ; en dessous, le texte serait trop petit : l'ID passe a cote. */
 export const HAUTEUR_MIN_DESSOUS = 16;
 
-/** Hauteur minimale (mm) pour un ID vertical a cote du QR ; en dessous, le texte serait trop petit : l'ID reste horizontal. */
-export const HAUTEUR_MIN_VERTICAL = 20;
 
 export interface LotOptions {
 	disposition: Disposition;
@@ -178,15 +176,7 @@ export function buildLotDesign(row: LotRow, label: LabelSpec, o: LotOptions): De
 	const out: DesignElement[] = [];
 	// Sous ou sur le QR : il faut de la hauteur ; sur un ruban etroit l'ID passe a droite.
 	const vertical = o.disposition === 'dessous' || o.disposition === 'dessus';
-	const cote = o.disposition === 'droiteV' || o.disposition === 'gaucheV';
-	const disp: Disposition =
-		vertical && vh < HAUTEUR_MIN_DESSOUS
-			? 'droite'
-			: cote && vh < HAUTEUR_MIN_VERTICAL
-				? o.disposition === 'droiteV'
-					? 'droite'
-					: 'gauche'
-				: o.disposition;
+	const disp: Disposition = vertical && vh < HAUTEUR_MIN_DESSOUS ? 'droite' : o.disposition;
 	const qrEl = (x: number, y: number, s: number, ecc: 'L' | 'M') =>
 		({ id: newId(), type: 'qr', x, y, w: s, h: s, rotation: 0, value: row.id, ecc }) as QrElement;
 	if (disp === 'aucun') {
@@ -209,7 +199,9 @@ export function buildLotDesign(row: LotRow, label: LabelSpec, o: LotOptions): De
 		const x0 = (vw - (q.mm + 1.2 + epaisseur)) / 2;
 		const xQr = disp === 'droiteV' ? x0 : x0 + epaisseur + 1.2;
 		const cxTexte = disp === 'droiteV' ? x0 + q.mm + 1.2 + epaisseur / 2 : x0 + epaisseur / 2;
-		out.push(qrEl(xQr, (vh - q.mm) / 2, q.mm, q.ecc));
+		// Position du QR calee sur un point d'impression : pas de modules de largeur inegale.
+		const snap = (v: number) => Math.round(v * o.dpmm) / o.dpmm;
+		out.push(qrEl(snap(xQr), snap((vh - q.mm) / 2), q.mm, q.ecc));
 		// Pour un quart de tour, x, y, w, h decrivent l'encombrement apres rotation (epaisseur x hauteur).
 		const t = text(cxTexte - epaisseur / 2, (vh - h) / 2, epaisseur, h, row.id, true, 'center');
 		t.rotation = 270;

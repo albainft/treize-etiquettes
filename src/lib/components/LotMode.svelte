@@ -295,8 +295,8 @@
 						<option value="dessus">Au-dessus du QR (ruban 16 mm et plus)</option>
 						<option value="droite">A droite du QR</option>
 						<option value="gauche">A gauche du QR</option>
-						<option value="droiteV">A droite du QR, vertical (ruban 20 mm et plus)</option>
-						<option value="gaucheV">A gauche du QR, vertical (ruban 20 mm et plus)</option>
+						<option value="droiteV">A droite du QR, vertical</option>
+						<option value="gaucheV">A gauche du QR, vertical</option>
 						<option value="aucun">Pas d'ID : QR seul</option>
 					</select>
 				</label>
