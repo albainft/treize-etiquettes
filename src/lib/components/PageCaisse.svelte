@@ -204,7 +204,7 @@
 
 	async function retirer(id: string) {
 		succes = '';
-		const e = await action('caisseRetirer', [id]);
+		const e = await action('caisseRetirer', [id, 'leger']);
 		if (e) dire(id + ' retiré du panier.');
 	}
 
@@ -217,7 +217,7 @@
 		if (minuteurVide) clearTimeout(minuteurVide);
 		videArme = false;
 		succes = '';
-		const e = await action('caisseVider');
+		const e = await action('caisseVider', ['leger']);
 		if (e) dire('Panier vidé.');
 	}
 
