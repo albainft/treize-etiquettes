@@ -122,7 +122,7 @@ export function tailleQr(valeur: string, dispoMm: number, largeurMaxMm: number, 
 	return { ecc: ecc as 'L' | 'M', mm: (n * k + 0.25) / dpmm, pointsParModule: k, modules: n };
 }
 
-function text(x: number, y: number, w: number, h: number, value: string, bold: boolean): TextElement {
+function text(x: number, y: number, w: number, h: number, value: string, bold: boolean, align: 'left' | 'center' = 'left'): TextElement {
 	return {
 		id: newId(),
 		type: 'text',
@@ -136,14 +136,20 @@ function text(x: number, y: number, w: number, h: number, value: string, bold: b
 		size: 8,
 		bold,
 		italic: false,
-		align: 'left',
+		align,
 		valign: 'middle',
 		fit: true,
 		lineHeight: 1.1
 	};
 }
 
+export type Disposition = 'dessous' | 'cote';
+
+/** Hauteur minimale (mm) pour mettre l'ID sous le QR ; en dessous, le texte serait trop petit : l'ID passe a cote. */
+export const HAUTEUR_MIN_DESSOUS = 16;
+
 export interface LotOptions {
+	disposition: Disposition;
 	/** Marge autour du contenu (mm). */
 	marge: number;
 	/** Bande non imprimable de chaque cote de l'axe court (mm). */
@@ -163,16 +169,27 @@ export function buildLotDesign(row: LotRow, label: LabelSpec, o: LotOptions): De
 	const vh = rotated ? label.lengthMm : label.widthMm;
 	const marge = Math.max(o.marge, 0.3);
 	const dispo = Math.max(1, vh - 2 * o.nonImprimableMm);
-	const q = tailleQr(row.id, dispo, vw * 0.45, o.dpmm, o.qrMode);
-	const s = q.mm;
-	const h = Math.max(1, vh - 2 * Math.max(marge, o.nonImprimableMm));
+	const haut = Math.max(marge, o.nonImprimableMm);
+	const h = Math.max(1, vh - 2 * haut);
 	const out: DesignElement[] = [];
-	const qr: QrElement = { id: newId(), type: 'qr', x: marge, y: (vh - s) / 2, w: s, h: s, rotation: 0, value: row.id, ecc: q.ecc };
-	out.push(qr);
-	const tx = marge + s + 1.2;
-	const tw = Math.max(1, vw - marge - tx);
-	// Le numero d'ID, en gras, sur toute la hauteur utile (le texte se reduit pour tenir en largeur).
-	out.push(text(tx, (vh - h) / 2, tw, h, row.id, true));
+	if (o.disposition === 'dessous' && vh >= HAUTEUR_MIN_DESSOUS) {
+		// QR centre en haut, numero d'ID centre dessous (le texte se reduit pour tenir en largeur).
+		const hTexte = Math.min(6, Math.max(3.5, vh * 0.22));
+		const ecart = 0.8;
+		const q = tailleQr(row.id, Math.max(1, h - hTexte - ecart), vw - 2 * marge, o.dpmm, o.qrMode);
+		const s = q.mm;
+		const groupe = s + ecart + hTexte;
+		const y0 = (vh - groupe) / 2;
+		out.push({ id: newId(), type: 'qr', x: (vw - s) / 2, y: y0, w: s, h: s, rotation: 0, value: row.id, ecc: q.ecc } as QrElement);
+		out.push(text(marge, y0 + s + ecart, vw - 2 * marge, hTexte, row.id, true, 'center'));
+	} else {
+		// Ruban etroit : QR a gauche, numero d'ID a droite sur toute la hauteur utile.
+		const q = tailleQr(row.id, dispo, vw * 0.45, o.dpmm, o.qrMode);
+		const s = q.mm;
+		out.push({ id: newId(), type: 'qr', x: marge, y: (vh - s) / 2, w: s, h: s, rotation: 0, value: row.id, ecc: q.ecc } as QrElement);
+		const tx = marge + s + 1.2;
+		out.push(text(tx, (vh - h) / 2, Math.max(1, vw - marge - tx), h, row.id, true));
+	}
 	if (!rotated) return out;
 	// Repere de lecture -> etiquette : (vx, vy) -> (W - vy, vx), rotation +90.
 	return out.map((el) => {

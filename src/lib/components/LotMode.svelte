@@ -8,7 +8,7 @@
 	import { mode } from '../stores/mode.svelte';
 	import {
 		buildLotDesign, celluleEnTexte, CONFIG_DEFAUT, construireRows, fusionner, resoudre, tableToDonnees, textToTable,
-		type Donnees, type LotConfig, type LotRow, type QrMode
+		type Disposition, type Donnees, type LotConfig, type LotRow, type QrMode
 	} from '../design/lot';
 	import { bitmapToCanvas, renderBitmap } from '../design/render';
 	import type { LabelSpec } from '../printer/types';
@@ -39,6 +39,7 @@
 		let source = $state('');
 	let marge = $state(1.0);
 	let qrMode = $state<QrMode>('sure');
+	let disposition = $state<Disposition>('dessous');
 	let filtre = $state('');
 	let statutFiltre = $state('');
 	let decoches = $state<Set<string>>(new Set());
@@ -163,7 +164,7 @@
 	function options() {
 		const l = $state.snapshot(editor.label) as LabelSpec;
 		const u = printer.unprintable(l);
-		return { l, o: { marge, nonImprimableMm: u?.mm ?? 0, dpmm: printer.dpmm, qrMode } };
+		return { l, o: { marge, nonImprimableMm: u?.mm ?? 0, dpmm: printer.dpmm, qrMode, disposition } };
 	}
 
 	async function bitmap(row: LotRow, l: LabelSpec, o: ReturnType<typeof options>['o']) {
@@ -182,7 +183,8 @@
 				const bmp = await bitmap(liste[i], l, o);
 				if (mon !== jeton || !canvases[i]) return;
 				bitmapToCanvas(bmp, canvases[i]);
-				canvases[i].style.width = Math.min(bmp.width * 1.5, 480) + 'px';
+				// Facteur entier : un agrandissement fractionnaire rend l'apercu flou (l'impression, elle, est a 1 point pres).
+				canvases[i].style.width = bmp.width * Math.max(1, Math.floor(640 / bmp.width)) + 'px';
 			}
 		})();
 	});
@@ -266,6 +268,13 @@
 					<select class="input" bind:value={qrMode}>
 						<option value="sure">Standard (correction M, zone libre)</option>
 						<option value="max">Grand (modules les plus gros)</option>
+					</select>
+				</label>
+				<label>
+					ID
+					<select class="input" bind:value={disposition}>
+						<option value="dessous">Sous le QR (ruban 16 mm et plus)</option>
+						<option value="cote">A cote du QR</option>
 					</select>
 				</label>
 				<label>Marge (mm) <input class="input" type="number" min="0" max="4" step="0.1" bind:value={marge} /></label>
