@@ -33,13 +33,22 @@
 		}
 		return { ...CONFIG_DEFAUT };
 	}
+	function lirePref(): Disposition {
+		try {
+			const v = localStorage.getItem(KEY + ':disposition');
+			if (v === 'dessous' || v === 'dessus' || v === 'droite' || v === 'gauche' || v === 'aucun') return v;
+		} catch {
+			// Stockage indisponible.
+		}
+		return 'dessous';
+	}
 	let brut = $state(lire());
 	let fichier = $state<Donnees | null>(null);
 	let cfg = $state<LotConfig>(lireCfg());
 		let source = $state('');
 	let marge = $state(1.0);
 	let qrMode = $state<QrMode>('sure');
-	let disposition = $state<Disposition>('dessous');
+	let disposition = $state<Disposition>(lirePref());
 	let filtre = $state('');
 	let statutFiltre = $state('');
 	let decoches = $state<Set<string>>(new Set());
@@ -97,6 +106,15 @@
 		const v = JSON.stringify($state.snapshot(cfg));
 		try {
 			localStorage.setItem(KEY + ':cfg', v);
+		} catch {
+			// Stockage indisponible.
+		}
+	});
+
+	$effect(() => {
+		const v = disposition;
+		try {
+			localStorage.setItem(KEY + ':disposition', v);
 		} catch {
 			// Stockage indisponible.
 		}
@@ -274,7 +292,10 @@
 					ID
 					<select class="input" bind:value={disposition}>
 						<option value="dessous">Sous le QR (ruban 16 mm et plus)</option>
-						<option value="cote">A cote du QR</option>
+						<option value="dessus">Au-dessus du QR (ruban 16 mm et plus)</option>
+						<option value="droite">A droite du QR</option>
+						<option value="gauche">A gauche du QR</option>
+						<option value="aucun">Pas d'ID : QR seul</option>
 					</select>
 				</label>
 				<label>Marge (mm) <input class="input" type="number" min="0" max="4" step="0.1" bind:value={marge} /></label>
