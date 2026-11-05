@@ -25,7 +25,8 @@
 	}
 
 	const FORMAT_ID = /^(FRI|BRO)-[A-Z0-9]+(-[A-Z0-9]+)?-\d{4}$/;
-	const DELAI_MEME_CODE = 4000;
+	// Un code n'est renvoye qu'apres 2 s sans le revoir : une piece tenue devant la camera ne cree qu'un envoi.
+	const SILENCE_MEME_CODE = 2000;
 
 	let panier = $state<Ligne[]>([]);
 	let panierMax = $state(0);
@@ -35,7 +36,7 @@
 	let occupe = $state(false);
 	let videArme = $state(false);
 	let dernierCode = '';
-	let dernierInstant = 0;
+	let derniereVue = 0;
 	let demarre = false;
 	let minuteurVide: ReturnType<typeof setTimeout> | null = null;
 
@@ -75,31 +76,36 @@
 
 	async function envoyer(code: string) {
 		dire('Lecture de ' + code + '...');
+		const t0 = performance.now();
 		const e = await action('caisseScanner', [code]);
 		if (!e) return;
+		const duree = ' (' + ((performance.now() - t0) / 1000).toFixed(1).replace('.', ',') + ' s)';
 		const r = (e.resultats ?? []).find((x) => x.code === code);
 		if (r) {
 			derniers = [r, ...derniers].slice(0, 5);
-			dire(r.message + (r.description ? ' : ' + r.description : ''), r.resultat !== 'OK');
+			dire(r.message + (r.description ? ' : ' + r.description : '') + duree, r.resultat !== 'OK');
 			if (r.resultat === 'OK') navigator.vibrate?.(60);
 		} else {
-			dire(code + ' : envoyé, résultat visible dans le panier.');
+			dire(code + ' : envoyé, résultat visible dans le panier.' + duree);
 		}
 	}
 
 	function surCode(brut: string) {
 		const code = brut.trim().toUpperCase();
-		if (!code || occupe || !session.connecte) return;
+		if (!code) return;
 		const maintenant = Date.now();
-		if (code === dernierCode && maintenant - dernierInstant < DELAI_MEME_CODE) return;
+		if (code === dernierCode) {
+			const absence = maintenant - derniereVue;
+			derniereVue = maintenant;
+			if (absence < SILENCE_MEME_CODE) return;
+		}
+		if (occupe || !session.connecte) return;
+		dernierCode = code;
+		derniereVue = maintenant;
 		if (!FORMAT_ID.test(code)) {
-			if (code !== dernierCode || maintenant - dernierInstant >= DELAI_MEME_CODE) dire('QR non reconnu (pas une pièce TREIZE).', true);
-			dernierCode = code;
-			dernierInstant = maintenant;
+			dire('QR non reconnu (pas une pièce TREIZE).', true);
 			return;
 		}
-		dernierCode = code;
-		dernierInstant = maintenant;
 		void envoyer(code);
 	}
 
