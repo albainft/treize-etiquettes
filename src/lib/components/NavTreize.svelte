@@ -6,6 +6,7 @@
 	const onglets: { cle: PageSite; texte: string; niveau: number }[] = [
 		{ cle: 'etiquettes', texte: 'Étiquettes', niveau: 0 },
 		{ cle: 'ajout', texte: 'Ajout', niveau: 1 },
+		{ cle: 'scan', texte: 'Scan', niveau: 1 },
 		{ cle: 'supprimer', texte: 'Supprimer', niveau: 2 }
 	];
 	const visibles = $derived(onglets.filter((o) => !session.identite || session.niveau >= o.niveau));

@@ -1,8 +1,8 @@
-export type PageSite = 'etiquettes' | 'ajout' | 'supprimer';
+export type PageSite = 'etiquettes' | 'ajout' | 'supprimer' | 'scan';
 
 function lire(): PageSite {
 	const h = typeof location === 'undefined' ? '' : location.hash.replace('#', '');
-	return h === 'ajout' || h === 'supprimer' ? h : 'etiquettes';
+	return h === 'ajout' || h === 'supprimer' || h === 'scan' ? h : 'etiquettes';
 }
 
 class Pages {
