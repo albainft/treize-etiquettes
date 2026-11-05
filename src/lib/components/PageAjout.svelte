@@ -20,9 +20,20 @@
 	interface Photo {
 		b64: string;
 		apercu: string;
+		/** Duree de la reduction sur l'appareil, en ms. */
+		ms: number;
+	}
+	interface Serveur {
+		jeton: number;
+		total: number;
 	}
 	interface ReponseAjout {
 		id: string;
+		serveur?: Serveur;
+	}
+	interface ReponsePhoto {
+		serveur?: Serveur;
+		etapes?: { dossier: number; recherche: number; creation: number };
 	}
 	interface Envoi {
 		numero: number;
@@ -78,6 +89,9 @@
 	// Meme cle tant que la piece n'est pas enregistree : un renvoi ne cree pas de doublon.
 	let cleEnvoi = $state(cle());
 	let succes = $state<{ id: string; envoyees: number; echecs: Envoi[] } | null>(null);
+	// Mesures de duree affichees sur l'ecran de succes (diagnostic de vitesse).
+	let mesures = $state<string[]>([]);
+	const sec = (ms: number) => (ms / 1000).toFixed(1) + ' s';
 
 	const categories = $derived(ctx?.categories[famille] ?? []);
 	const groupes = $derived.by(() => {
@@ -116,6 +130,7 @@
 	// Reduit une photo : 1280 px au plus, JPEG. null si illisible.
 	function reduire(fichier: File, largeur: number): Promise<Photo | null> {
 		return new Promise((resolve) => {
+			const debut = performance.now();
 			const url = URL.createObjectURL(fichier);
 			const img = new Image();
 			img.onload = () => {
@@ -134,7 +149,7 @@
 						c.getContext('2d')?.drawImage(img, 0, 0, c.width, c.height);
 						const data = c.toDataURL('image/jpeg', qualite);
 						const b64 = data.substring(data.indexOf(',') + 1);
-						sortie = { b64, apercu: data };
+						sortie = { b64, apercu: data, ms: performance.now() - debut };
 						if (b64.length < 1_400_000) break;
 					}
 					resolve(sortie);
@@ -189,8 +204,12 @@
 		}
 		occupe = true;
 		progres = 'Enregistrement en cours…';
+		mesures = [];
 		try {
+			const t0 = performance.now();
 			const r = await appeler<ReponseAjout>('ajoutPiece', [{ famille, ...champs, cle: cleEnvoi }]);
+			mesures.push(`Pièce : ${sec(performance.now() - t0)} au total, dont serveur ${sec(r.serveur?.total ?? 0)} (jeton ${sec(r.serveur?.jeton ?? 0)})`);
+			photos.forEach((p, i) => mesures.push(`Photo ${i + 1} : réduction sur l'appareil ${sec(p.ms)}, ${Math.round(p.b64.length / 1024)} Ko`));
 			const aEnvoyer = photos.map((p, i) => ({ numero: i + 1, b64: p.b64 }));
 			const echecs = await envoyerPhotos(r.id, aEnvoyer);
 			succes = { id: r.id, envoyees: aEnvoyer.length - echecs.length, echecs };
@@ -214,7 +233,14 @@
 			let ok = false;
 			for (let essai = 0; essai < 3 && !ok; essai++) {
 				try {
-					await appeler('ajoutPhoto', [id, liste[i].numero, liste[i].b64, i === liste.length - 1, total]);
+					const t0 = performance.now();
+					const r = await appeler<ReponsePhoto>('ajoutPhoto', [id, liste[i].numero, liste[i].b64, i === liste.length - 1, total]);
+					const e = r.etapes;
+					mesures.push(
+						`Envoi photo ${liste[i].numero} : ${sec(performance.now() - t0)} au total, serveur ${sec(r.serveur?.total ?? 0)} (jeton ${sec(r.serveur?.jeton ?? 0)}` +
+							(e ? `, dossier ${sec(e.dossier)}, recherche ${sec(e.recherche)}, création ${sec(e.creation)}` : '') +
+							')'
+					);
 					ok = true;
 				} catch (e) {
 					const code = (e as ErreurTreize).code;
@@ -269,6 +295,12 @@
 				<button class="btn" onclick={reessayer} disabled={occupe}>Réessayer les photos</button>
 			{/if}
 			<p class="discret" aria-live="polite">{progres}</p>
+			{#if mesures.length}
+				<details>
+					<summary>Détail du temps</summary>
+					<ul>{#each mesures as m, i (i)}<li>{m}</li>{/each}</ul>
+				</details>
+			{/if}
 			<button class="btn primary" onclick={autre} disabled={occupe}>Ajouter une autre pièce</button>
 		</section>
 	{:else if session.connecte && ctx}
@@ -497,6 +529,10 @@
 		font-size: 26px;
 		font-weight: 700;
 		word-break: break-all;
+	}
+	details {
+		color: var(--muted);
+		font-size: 13px;
 	}
 	.btn.disabled {
 		opacity: 0.5;
