@@ -10,7 +10,7 @@
 	import NavTreize from './lib/components/NavTreize.svelte';
 	import PageAjout from './lib/components/PageAjout.svelte';
 	import PageSupprimer from './lib/components/PageSupprimer.svelte';
-	import PageScan from './lib/components/PageScan.svelte';
+	import PageCaisse from './lib/components/PageCaisse.svelte';
 	import { pages } from './lib/stores/page.svelte';
 	import ModeChooser from './lib/components/ModeChooser.svelte';
 	import { mode } from './lib/stores/mode.svelte';
@@ -33,8 +33,8 @@
 		<div class="contenu">
 			{#if pages.courante === 'ajout'}
 				<PageAjout />
-			{:else if pages.courante === 'scan'}
-				<PageScan />
+			{:else if pages.courante === 'caisse'}
+				<PageCaisse />
 			{:else if pages.courante === 'supprimer'}
 				<PageSupprimer />
 			{:else}
