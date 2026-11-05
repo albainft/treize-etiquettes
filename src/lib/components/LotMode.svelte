@@ -6,7 +6,10 @@
 	import { printer } from '../stores/printer.svelte';
 	import { editor } from '../stores/editor.svelte';
 	import { mode } from '../stores/mode.svelte';
-	import { buildLotDesign, celluleEnTexte, tableToRows, textToTable, type LotRow, type QrMode } from '../design/lot';
+	import {
+		buildLotDesign, celluleEnTexte, CONFIG_DEFAUT, construireRows, fusionner, resoudre, tableToDonnees, textToTable,
+		type Donnees, type LotConfig, type LotRow, type QrMode
+	} from '../design/lot';
 	import { bitmapToCanvas, renderBitmap } from '../design/render';
 	import type { LabelSpec } from '../printer/types';
 
@@ -21,9 +24,19 @@
 			return '';
 		}
 	}
+	function lireCfg(): LotConfig {
+		try {
+			const v = JSON.parse(localStorage.getItem(KEY + ':cfg') ?? 'null');
+			if (v && typeof v.qr === 'string') return { ...CONFIG_DEFAUT, qr: v.qr, statut: typeof v.statut === 'string' ? v.statut : CONFIG_DEFAUT.statut };
+		} catch {
+			// Reglages illisibles : on repart des valeurs par defaut.
+		}
+		return { ...CONFIG_DEFAUT };
+	}
 	let brut = $state(lire());
-	let fichier = $state<LotRow[] | null>(null);
-	let source = $state('');
+	let fichier = $state<Donnees | null>(null);
+	let cfg = $state<LotConfig>(lireCfg());
+		let source = $state('');
 	let marge = $state(1.0);
 	let qrMode = $state<QrMode>('sure');
 	let filtre = $state('');
@@ -36,7 +49,12 @@
 	let canvases: HTMLCanvasElement[] = $state([]);
 
 	// Les lignes viennent du fichier depose s'il y en a un, sinon du texte colle.
-	const rows = $derived(fichier ?? tableToRows(textToTable(brut)));
+	const donnees = $derived<Donnees>(fichier ?? tableToDonnees(textToTable(brut)));
+	const entetes = $derived(donnees.entetes);
+	// Colonne du QR : celle choisie si elle existe, sinon ID, sinon la 1re colonne.
+	const colQr = $derived(resoudre(entetes, cfg.qr) || resoudre(entetes, 'ID') || entetes[0] || '');
+	const cfgEff = $derived<LotConfig>({ ...cfg, qr: colQr });
+	const rows = $derived(construireRows(donnees, cfgEff));
 	const statuts = $derived([...new Set(rows.map((r) => r.statut).filter(Boolean))].sort());
 	const motifs = $derived(
 		filtre
@@ -48,7 +66,7 @@
 		rows.filter((r) => {
 			if (statutFiltre && r.statut !== statutFiltre) return false;
 			if (!motifs.length) return true;
-			const h = (r.id + ' ' + r.description + ' ' + r.statut).toLowerCase();
+			const h = (r.id + ' ' + r.statut).toLowerCase();
 			return motifs.some((m) => h.includes(m));
 		})
 	);
@@ -59,7 +77,7 @@
 	// Nouvelle liste : tout est coche, sauf les pieces deja vendues.
 	let dernierJeu = '';
 	$effect(() => {
-		const cle = rows.map((r) => r.id).join('|');
+		const cle = rows.map((r) => r.id + '\u0001' + r.statut).join('|');
 		if (cle === dernierJeu) return;
 		dernierJeu = cle;
 		decoches = new Set(rows.filter((r) => /^vendu/i.test(r.statut)).map((r) => r.id));
@@ -71,6 +89,15 @@
 			localStorage.setItem(KEY, v);
 		} catch {
 			// Stockage indisponible : le texte ne survivra pas au rechargement.
+		}
+	});
+
+	$effect(() => {
+		const v = JSON.stringify($state.snapshot(cfg));
+		try {
+			localStorage.setItem(KEY + ':cfg', v);
+		} catch {
+			// Stockage indisponible.
 		}
 	});
 
@@ -98,24 +125,18 @@
 				const feuilles = await readSheetNames(f);
 				const choix = feuilles.filter((n) => /^(fripes|broc)$/i.test(n));
 				const cibles = choix.length ? choix : feuilles.slice(0, 1);
-				const tout: LotRow[] = [];
-				const vus = new Set<string>();
+				const parOnglet: Donnees[] = [];
 				for (const nomFeuille of cibles) {
 					const lignes = await readXlsxFile(f, { sheet: nomFeuille });
 					if (!lignes.length) continue;
-					const colPrix = lignes[0].findIndex((c) => /^prix.?boutique$|^prix$/i.test(String(c ?? '').trim()));
-					const conv = lignes.map((l, i) => l.map((c, j) => celluleEnTexte(c, i > 0 && j === colPrix)));
+					const conv = lignes.map((l) => l.map((c) => celluleEnTexte(c, false)));
 					// Chaque onglet est lu avec son propre en-tete (FRIPES et BROC n'ont pas les memes colonnes).
-					for (const r of tableToRows(conv)) {
-						if (vus.has(r.id)) continue;
-						vus.add(r.id);
-						tout.push(r);
-					}
+					parOnglet.push(tableToDonnees(conv));
 				}
-				fichier = tout;
+				fichier = fusionner(parOnglet);
 				source = `${f.name} (${cibles.join(', ')})`;
 			} else {
-				fichier = tableToRows(textToTable(await f.text()));
+				fichier = tableToDonnees(textToTable(await f.text()));
 				source = f.name;
 			}
 		} catch (e) {
@@ -259,10 +280,32 @@
 				{#if source}<span class="pill">{source}</span> <button class="btn sm ghost" onclick={vider}>Effacer</button>{/if}
 			</div>
 			{#if !fichier}
-				<p class="aide">Ou colle les lignes depuis Sheets, avec la ligne d'en-tete (ID, DESCRIPTION, MARQUE, TAILLE, PRIX_BOUTIQUE, STATUT). Le QR contient l'ID.</p>
+				<p class="aide">Ou colle les lignes depuis Sheets, avec la ligne d'en-tete (noms de colonnes). L'etiquette porte le QR et le numero d'ID.</p>
 				<textarea class="input" rows="5" bind:value={brut} placeholder={'ID\tDESCRIPTION\tPRIX_BOUTIQUE\nFRI-VES-0001\tManteau laine vert\t59,00 EUR'}></textarea>
 			{/if}
 		</section>
+
+		{#if entetes.length}
+			<section class="card">
+				<h3>Colonnes</h3>
+				<div class="row reglages">
+					<label>
+						Colonne de l'ID (QR et numero)
+						<select class="input" value={colQr} onchange={(e) => (cfg.qr = e.currentTarget.value)}>
+							{#each entetes as h (h)}<option value={h}>{h}</option>{/each}
+						</select>
+					</label>
+					<label>
+						Colonne du statut (filtre)
+						<select class="input" value={resoudre(entetes, cfg.statut)} onchange={(e) => (cfg.statut = e.currentTarget.value)}>
+							<option value="">Aucune</option>
+							{#each entetes as h (h)}<option value={h}>{h}</option>{/each}
+						</select>
+					</label>
+				</div>
+				{#if !rows.length}<div class="note err"><Icon svg={CircleAlert} size={15} /> Aucune valeur dans la colonne « {colQr} ».</div>{/if}
+			</section>
+		{/if}
 
 		{#if rows.length}
 			<section class="card">
@@ -285,8 +328,6 @@
 						<label class="ligne" class:off={decoches.has(r.id)}>
 							<input type="checkbox" checked={!decoches.has(r.id)} onchange={() => basculer(r.id)} />
 							<span class="idc">{r.id}</span>
-							<span class="desc">{r.description}</span>
-							<span class="prix">{r.prix}</span>
 							{#if r.statut}<span class="pill">{r.statut}</span>{/if}
 						</label>
 					{/each}
@@ -403,7 +444,7 @@
 	}
 	.ligne {
 		display: grid;
-		grid-template-columns: 20px 150px 1fr auto auto;
+		grid-template-columns: 20px 1fr auto;
 		gap: 8px;
 		align-items: center;
 		padding: 6px 10px;
@@ -417,11 +458,6 @@
 	.idc {
 		font-weight: 600;
 		font-family: monospace;
-	}
-	.desc {
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 	.apercu {
 		display: flex;

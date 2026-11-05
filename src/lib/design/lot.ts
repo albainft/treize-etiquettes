@@ -1,16 +1,30 @@
-/** Mode Lot : une liste de pieces (ID, description, prix) devient une etiquette par ligne : QR de l'ID + texte. */
+/** Mode Lot : une liste de pieces devient une etiquette par ligne : le QR et le numero d'ID. */
 import qrcode from 'qrcode-generator';
 import { newId, type DesignElement, type Rotation, type TextElement, type QrElement } from './model';
 import type { LabelSpec } from '../printer/types';
 
-export interface LotRow {
-	id: string;
-	description: string;
-	prix: string;
+/** Un fichier ou un texte colle : la 1re ligne donne les noms de colonnes. */
+export interface Donnees {
+	entetes: string[];
+	lignes: Record<string, string>[];
+}
+
+export interface LotConfig {
+	/** Colonne dont la valeur est encodee dans le QR et imprimee sous forme de numero. */
+	qr: string;
+	/** Colonne du statut, pour le filtre (vide : pas de filtre par statut). */
 	statut: string;
 }
 
-const strip = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+export const CONFIG_DEFAUT: LotConfig = { qr: 'ID', statut: 'STATUT' };
+
+export interface LotRow {
+	id: string;
+	statut: string;
+}
+
+/** Comparaison de noms de colonnes : sans accents, sans casse, sans ponctuation. */
+export const cle = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 
 function split(line: string, sep: string): string[] {
 	return line.split(sep).map((c) => c.trim().replace(/^"(.*)"$/, '$1'));
@@ -24,45 +38,57 @@ export function textToTable(raw: string): string[][] {
 	return lines.map((l) => split(l, sep));
 }
 
-/**
- * Tableau de cellules vers des pieces.
- * Avec une ligne d'en-tete contenant ID : colonnes ID, DESCRIPTION, MARQUE, TAILLE, PRIX_BOUTIQUE (ou PRIX), STATUT.
- * Sans en-tete : 1re colonne ID, 2e description, 3e prix.
- * Les lignes d'un meme ID ne comptent qu'une fois.
- */
-export function tableToRows(table: string[][]): LotRow[] {
-	if (!table.length) return [];
-	let idx = { id: 0, description: 1, marque: -1, taille: -1, prix: 2, statut: -1 };
-	let start = 0;
-	const head = table[0].map((c) => strip(String(c ?? '')));
-	if (head.includes('ID')) {
-		const find = (...names: string[]) => head.findIndex((h) => names.includes(h));
-		idx = {
-			id: head.indexOf('ID'),
-			description: find('DESCRIPTION', 'DESIGNATION'),
-			marque: find('MARQUE'),
-			taille: find('TAILLE'),
-			prix: find('PRIXBOUTIQUE', 'PRIX'),
-			statut: find('STATUT')
-		};
-		start = 1;
+/** Tableau de cellules vers des donnees : la 1re ligne est l'en-tete. Noms vides ou doubles rendus uniques. */
+export function tableToDonnees(table: string[][]): Donnees {
+	if (table.length < 1) return { entetes: [], lignes: [] };
+	const vus = new Map<string, number>();
+	const entetes = table[0].map((h, i) => {
+		let nom = String(h ?? '').trim() || `COLONNE ${i + 1}`;
+		const n = (vus.get(nom) ?? 0) + 1;
+		vus.set(nom, n);
+		if (n > 1) nom = `${nom} (${n})`;
+		return nom;
+	});
+	const lignes = table.slice(1).map((c) => {
+		const rec: Record<string, string> = {};
+		entetes.forEach((h, j) => (rec[h] = String(c[j] ?? '').trim()));
+		return rec;
+	});
+	return { entetes, lignes };
+}
+
+/** Plusieurs onglets : colonnes en commun regroupees par nom, les autres ajoutees a la suite. */
+export function fusionner(liste: Donnees[]): Donnees {
+	const entetes: string[] = [];
+	const lignes: Record<string, string>[] = [];
+	for (const d of liste) {
+		for (const h of d.entetes) if (!entetes.includes(h)) entetes.push(h);
+		lignes.push(...d.lignes);
 	}
+	return { entetes, lignes };
+}
+
+/** Nom exact de colonne pour un nom approximatif (ID, id, Prix boutique...), ou chaine vide. */
+export function resoudre(entetes: string[], nom: string): string {
+	const k = cle(nom);
+	return k ? (entetes.find((h) => cle(h) === k) ?? '') : '';
+}
+
+/** Donnees + colonne d'ID vers des pieces. Une valeur de QR n'apparait qu'une fois. */
+export function construireRows(d: Donnees, cfg: LotConfig): LotRow[] {
+	const colQr = resoudre(d.entetes, cfg.qr);
+	if (!colQr) return [];
+	const colStatut = resoudre(d.entetes, cfg.statut);
 	const rows: LotRow[] = [];
 	const vus = new Set<string>();
-	for (let i = start; i < table.length; i++) {
-		const c = table[i];
-		const id = String(c[idx.id] ?? '').trim();
+	for (const rec of d.lignes) {
+		const id = (rec[colQr] ?? '').trim();
 		if (!id || vus.has(id)) continue;
 		vus.add(id);
-		const get = (k: number) => (k >= 0 ? String(c[k] ?? '').trim() : '');
-		const taille = get(idx.taille);
-		const parts = [get(idx.description), get(idx.marque), taille ? 'T.' + taille : ''];
-		rows.push({ id, description: parts.filter(Boolean).join(' '), prix: get(idx.prix), statut: get(idx.statut) });
+		rows.push({ id, statut: colStatut ? (rec[colStatut] ?? '') : '' });
 	}
 	return rows;
 }
-
-export const parseLot = (raw: string): LotRow[] => tableToRows(textToTable(raw));
 
 /** Cellule Excel (nombre, date, texte) en texte ; un prix numerique devient "59,00 EUR". */
 export function celluleEnTexte(v: unknown, estPrix: boolean): string {
@@ -145,16 +171,8 @@ export function buildLotDesign(row: LotRow, label: LabelSpec, o: LotOptions): De
 	out.push(qr);
 	const tx = marge + s + 1.2;
 	const tw = Math.max(1, vw - marge - tx);
-	const lignes: [string, boolean, number][] = [[row.id, true, 0.32]];
-	if (row.description) lignes.push([row.description, false, 0.4]);
-	if (row.prix) lignes.push([row.prix, true, 0.28]);
-	const total = lignes.reduce((a, l) => a + l[2], 0);
-	let y = (vh - h) / 2;
-	for (const [t, bold, part] of lignes) {
-		const hh = (h * part) / total;
-		out.push(text(tx, y, tw, hh, t, bold));
-		y += hh;
-	}
+	// Le numero d'ID, en gras, sur toute la hauteur utile (le texte se reduit pour tenir en largeur).
+	out.push(text(tx, (vh - h) / 2, tw, h, row.id, true));
 	if (!rotated) return out;
 	// Repere de lecture -> etiquette : (vx, vy) -> (W - vy, vx), rotation +90.
 	return out.map((el) => {
