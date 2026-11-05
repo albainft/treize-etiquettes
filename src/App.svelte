@@ -7,6 +7,10 @@
 	import PrintPanel from './lib/components/PrintPanel.svelte';
 	import QuickMode from './lib/components/QuickMode.svelte';
 	import LotMode from './lib/components/LotMode.svelte';
+	import NavTreize from './lib/components/NavTreize.svelte';
+	import PageAjout from './lib/components/PageAjout.svelte';
+	import PageSupprimer from './lib/components/PageSupprimer.svelte';
+	import { pages } from './lib/stores/page.svelte';
 	import ModeChooser from './lib/components/ModeChooser.svelte';
 	import { mode } from './lib/stores/mode.svelte';
 	import { printer } from './lib/stores/printer.svelte';
@@ -23,7 +27,18 @@
 </script>
 
 {#if mode.mode === 'lot'}
-	<LotMode />
+	<div class="racine">
+		<NavTreize />
+		<div class="contenu">
+			{#if pages.courante === 'ajout'}
+				<PageAjout />
+			{:else if pages.courante === 'supprimer'}
+				<PageSupprimer />
+			{:else}
+				<LotMode />
+			{/if}
+		</div>
+	</div>
 {:else if mode.mode === 'quick'}
 	<QuickMode />
 {:else}
@@ -46,6 +61,18 @@
 {/if}
 
 <style>
+	.racine {
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.contenu {
+		flex: 1;
+		min-height: 0;
+		overflow: auto;
+	}
+
 	.app {
 		height: 100%;
 		display: flex;

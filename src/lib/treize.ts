@@ -1,16 +1,35 @@
-/** Acces a l'application arriere TREIZE depuis le site (connexion Google, lecture des pieces). */
+/** Acces a l'application arriere TREIZE depuis le site (connexion Google, appels d'actions). */
 import type { Donnees } from './design/lot';
 
 const CLIENT_ID = '841663594728-h4it68rr6h3rj6nd3jj59lavh906kl83.apps.googleusercontent.com';
 const URL_ARRIERE =
 	'https://script.google.com/macros/s/AKfycbyZ_4Nn10m-XuAJpWnq_3He8Rk9CQA_gJXcElHQt_l3HJU5ixsUNl2NF5XO0OLe5VMWtw/exec';
 
-const MESSAGES: Record<string, string> = {
-	ACCES_REFUSE: 'Acces refuse : ce compte Google n\'a pas acces, ou la connexion a expire. Reconnecte-toi.',
-	NIVEAU_INSUFFISANT: 'Ce compte n\'a pas le droit de lire la liste des pieces.',
-	OCCUPE: 'Une autre action est en cours. Reessaie dans un instant.',
-	ERREUR_TECHNIQUE: 'Erreur technique cote application arriere.'
+/** Messages par code de refus de l'arriere. Un code inconnu est affiche tel quel. */
+export const MESSAGES: Record<string, string> = {
+	ACCES_REFUSE: "Accès refusé : ce compte Google n'a pas accès, ou la connexion a expiré. Reconnecte-toi.",
+	NIVEAU_INSUFFISANT: "Ce compte n'a pas le droit de faire cette action.",
+	OCCUPE: 'Une autre action est en cours. Réessaie dans un instant.',
+	ERREUR_TECHNIQUE: 'Problème technique côté application. Réessaie ; si cela continue, préviens le responsable.',
+	TROP_D_AJOUTS: "Trop d'ajouts en une heure. Fais une pause ou préviens le responsable.",
+	VALIDATION: 'Vérifie les champs signalés en rouge.',
+	ID_INVALIDE: 'Identifiant invalide.',
+	INTROUVABLE: 'Aucune pièce avec cet identifiant.',
+	AMBIGU: 'Plusieurs lignes portent cet identifiant : ne pas supprimer ici, prévenir le propriétaire.',
+	VENDU: 'Pièce vendue : suppression impossible.',
+	DANS_PANIER: 'Pièce dans le panier de la caisse : suppression impossible.',
+	DANS_VENTE: 'Pièce citée dans une vente : suppression impossible.'
 };
+
+export class ErreurTreize extends Error {
+	code: string;
+	reponse: Record<string, unknown>;
+	constructor(code: string, message: string, reponse: Record<string, unknown> = {}) {
+		super(message);
+		this.code = code;
+		this.reponse = reponse;
+	}
+}
 
 interface GoogleId {
 	accounts: {
@@ -23,6 +42,17 @@ interface GoogleId {
 
 let jeton = '';
 let expire = 0;
+let initialise = false;
+const ecouteurs = new Set<(connecte: boolean) => void>();
+
+/** Appele a chaque changement d'etat de connexion (connexion reussie, expiration, refus). */
+export function ecouterConnexion(f: (connecte: boolean) => void): () => void {
+	ecouteurs.add(f);
+	return () => ecouteurs.delete(f);
+}
+function notifier(etat: boolean) {
+	for (const f of ecouteurs) f(etat);
+}
 
 /** Lit la date d'expiration du jeton (confort d'affichage : le controle reel est cote arriere). */
 function expirationDe(j: string): number {
@@ -50,29 +80,36 @@ function chargerGoogle(): Promise<GoogleId> {
 			if (g2?.accounts?.id) resolve(g2);
 			else reject(new Error('Service Google indisponible.'));
 		};
-		s.onerror = () => reject(new Error('Le service de connexion Google n\'a pas pu etre charge.'));
+		s.onerror = () => reject(new Error("Le service de connexion Google n'a pas pu être chargé."));
 		document.head.appendChild(s);
 	});
 }
 
-/** Affiche le bouton Google dans `el`. `apres` est appele quand la connexion reussit. */
-export async function afficherConnexion(el: HTMLElement, apres: () => void): Promise<void> {
+/** Affiche le bouton Google dans `el`. La connexion est signalee par ecouterConnexion. */
+export async function afficherConnexion(el: HTMLElement): Promise<void> {
 	const g = await chargerGoogle();
-	g.accounts.id.initialize({
-		client_id: CLIENT_ID,
-		auto_select: false,
-		callback: (r) => {
-			if (!r.credential) return;
-			jeton = r.credential;
-			expire = expirationDe(jeton);
-			apres();
-		}
-	});
+	if (!initialise) {
+		g.accounts.id.initialize({
+			client_id: CLIENT_ID,
+			auto_select: false,
+			callback: (r) => {
+				if (!r.credential) return;
+				jeton = r.credential;
+				expire = expirationDe(jeton);
+				notifier(true);
+			}
+		});
+		initialise = true;
+	}
 	g.accounts.id.renderButton(el, { theme: 'outline', size: 'medium', locale: 'fr' });
 }
 
-async function appeler<T>(action: string, args: unknown[] = []): Promise<T> {
-	if (!connecte()) throw new Error('Connecte-toi avec Google.');
+/** Appelle une action de l'arriere. Leve ErreurTreize si le reseau ou l'arriere refuse. */
+export async function appeler<T = Record<string, unknown>>(action: string, args: unknown[] = []): Promise<T> {
+	if (!connecte()) {
+		notifier(false);
+		throw new ErreurTreize('ACCES_REFUSE', MESSAGES.ACCES_REFUSE);
+	}
 	let r: Response;
 	try {
 		r = await fetch(URL_ARRIERE, {
@@ -82,22 +119,35 @@ async function appeler<T>(action: string, args: unknown[] = []): Promise<T> {
 			body: JSON.stringify({ jeton, action, args })
 		});
 	} catch {
-		throw new Error('Pas de reponse de l\'application arriere (reseau ou appel bloque).');
+		throw new ErreurTreize('RESEAU', "Connexion perdue. Réessaie : une pièce déjà envoyée ne sera pas ajoutée deux fois.");
 	}
 	let corps: { ok?: boolean; code?: string } & Record<string, unknown>;
 	try {
 		corps = await r.json();
 	} catch {
-		throw new Error('Reponse illisible de l\'application arriere.');
+		throw new ErreurTreize('REPONSE', "Réponse illisible de l'application arrière.");
 	}
 	if (corps.ok !== true) {
-		if (corps.code === 'ACCES_REFUSE') {
+		const code = corps.code ?? 'ERREUR_TECHNIQUE';
+		if (code === 'ACCES_REFUSE') {
 			jeton = '';
 			expire = 0;
+			notifier(false);
 		}
-		throw new Error(MESSAGES[corps.code ?? ''] ?? 'Refus : ' + corps.code);
+		throw new ErreurTreize(code, MESSAGES[code] ?? 'Refus : ' + code, corps);
 	}
 	return corps as unknown as T;
+}
+
+export interface Identite {
+	prenom: string;
+	role: string;
+	niveau: number;
+}
+
+export async function lireIdentite(): Promise<Identite> {
+	const r = await appeler<Identite>('identite');
+	return { prenom: r.prenom, role: r.role, niveau: r.niveau };
 }
 
 interface PieceListee {
