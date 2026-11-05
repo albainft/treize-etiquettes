@@ -12,6 +12,7 @@
 	} from '../design/lot';
 	import { bitmapToCanvas, renderBitmap } from '../design/render';
 	import type { LabelSpec } from '../printer/types';
+	import { afficherConnexion, chargerPieces, connecte } from '../treize';
 
 	const KEY = 'treize-etiquettes:lot';
 	const APERCU_MAX = 6;
@@ -173,6 +174,32 @@
 		const f = (e.currentTarget as HTMLInputElement).files?.[0];
 		if (f) void lireFichier(f);
 	}
+	let boutonGoogle: HTMLElement | undefined = $state();
+	let treizeOk = $state(false);
+	let treizeMsg = $state('');
+	let treizeEnCours = $state(false);
+	$effect(() => {
+		if (!boutonGoogle) return;
+		afficherConnexion(boutonGoogle, () => {
+			treizeOk = true;
+			treizeMsg = '';
+		}).catch((e: Error) => (treizeMsg = e.message));
+	});
+	async function chargerTreize() {
+		treizeEnCours = true;
+		treizeMsg = '';
+		try {
+			const r = await chargerPieces();
+			fichier = r.donnees;
+			source = `TREIZE (${r.donnees.lignes.length} pieces)`;
+			if (r.tronque) treizeMsg = 'Liste tronquee : trop de pieces.';
+		} catch (e) {
+			treizeMsg = (e as Error).message;
+			treizeOk = connecte();
+		} finally {
+			treizeEnCours = false;
+		}
+	}
 	function vider() {
 		fichier = null;
 		source = '';
@@ -306,6 +333,11 @@
 
 		<section class="card">
 			<h3>Pieces</h3>
+			<div class="depot">
+				<div bind:this={boutonGoogle} hidden={treizeOk}></div>
+				{#if treizeOk}<button class="btn sm" onclick={chargerTreize} disabled={treizeEnCours}>{treizeEnCours ? 'Chargement...' : 'Charger depuis TREIZE'}</button>{/if}
+				{#if treizeMsg}<span class="aide">{treizeMsg}</span>{/if}
+			</div>
 			<div class="depot">
 				Depose un fichier ici (.xlsx, .csv, .tsv) ou
 				<label class="btn sm"><input type="file" accept=".xlsx,.csv,.tsv,.txt" onchange={surChoix} hidden /> Choisir un fichier</label>
