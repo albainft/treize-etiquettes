@@ -144,10 +144,13 @@ function text(x: number, y: number, w: number, h: number, value: string, bold: b
 }
 
 /** Ou s'affiche le numero d'ID par rapport au QR (ou pas du tout). */
-export type Disposition = 'dessous' | 'dessus' | 'droite' | 'gauche' | 'aucun';
+export type Disposition = 'dessous' | 'dessus' | 'droite' | 'gauche' | 'droiteV' | 'gaucheV' | 'aucun';
 
 /** Hauteur minimale (mm) pour mettre l'ID sous le QR ; en dessous, le texte serait trop petit : l'ID passe a cote. */
 export const HAUTEUR_MIN_DESSOUS = 16;
+
+/** Hauteur minimale (mm) pour un ID vertical a cote du QR ; en dessous, le texte serait trop petit : l'ID reste horizontal. */
+export const HAUTEUR_MIN_VERTICAL = 20;
 
 export interface LotOptions {
 	disposition: Disposition;
@@ -175,7 +178,15 @@ export function buildLotDesign(row: LotRow, label: LabelSpec, o: LotOptions): De
 	const out: DesignElement[] = [];
 	// Sous ou sur le QR : il faut de la hauteur ; sur un ruban etroit l'ID passe a droite.
 	const vertical = o.disposition === 'dessous' || o.disposition === 'dessus';
-	const disp: Disposition = vertical && vh < HAUTEUR_MIN_DESSOUS ? 'droite' : o.disposition;
+	const cote = o.disposition === 'droiteV' || o.disposition === 'gaucheV';
+	const disp: Disposition =
+		vertical && vh < HAUTEUR_MIN_DESSOUS
+			? 'droite'
+			: cote && vh < HAUTEUR_MIN_VERTICAL
+				? o.disposition === 'droiteV'
+					? 'droite'
+					: 'gauche'
+				: o.disposition;
 	const qrEl = (x: number, y: number, s: number, ecc: 'L' | 'M') =>
 		({ id: newId(), type: 'qr', x, y, w: s, h: s, rotation: 0, value: row.id, ecc }) as QrElement;
 	if (disp === 'aucun') {
@@ -191,6 +202,18 @@ export function buildLotDesign(row: LotRow, label: LabelSpec, o: LotOptions): De
 		const yQr = disp === 'dessous' ? y0 : y0 + hTexte + ecart;
 		out.push(qrEl((vw - q.mm) / 2, yQr, q.mm, q.ecc));
 		out.push(text(marge, yTexte, vw - 2 * marge, hTexte, row.id, true, 'center'));
+	} else if (disp === 'droiteV' || disp === 'gaucheV') {
+		// ID vertical (lu de bas en haut) a cote du QR, sur toute la hauteur utile ; le groupe est centre.
+		const q = tailleQr(row.id, dispo, vw * 0.6, o.dpmm, o.qrMode);
+		const epaisseur = Math.min(6, Math.max(1, vw - 2 * marge - q.mm - 1.2));
+		const x0 = (vw - (q.mm + 1.2 + epaisseur)) / 2;
+		const xQr = disp === 'droiteV' ? x0 : x0 + epaisseur + 1.2;
+		const cxTexte = disp === 'droiteV' ? x0 + q.mm + 1.2 + epaisseur / 2 : x0 + epaisseur / 2;
+		out.push(qrEl(xQr, (vh - q.mm) / 2, q.mm, q.ecc));
+		// Pour un quart de tour, x, y, w, h decrivent l'encombrement apres rotation (epaisseur x hauteur).
+		const t = text(cxTexte - epaisseur / 2, (vh - h) / 2, epaisseur, h, row.id, true, 'center');
+		t.rotation = 270;
+		out.push(t);
 	} else {
 		// A droite ou a gauche du QR, sur toute la hauteur utile.
 		const q = tailleQr(row.id, dispo, vw * 0.45, o.dpmm, o.qrMode);
