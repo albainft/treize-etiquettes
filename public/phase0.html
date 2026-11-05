@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TREIZE - test de connexion</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #fafafa; color: #1c1c1c; }
+    main { max-width: 480px; margin: auto; }
+    h1 { font-size: 1.2rem; }
+    #bouton { margin: 16px 0; min-height: 44px; }
+    #resultat { padding: 12px; background: #fff; border: 1px solid #ddd; border-radius: 6px; white-space: pre-wrap; word-break: break-word; }
+    .ok { color: #1b6e2d; }
+    .erreur { color: #b3261e; }
+    small { color: #666; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>TREIZE : test de connexion (phase 0)</h1>
+  <p>Connecte-toi avec ton compte Google. Le site envoie ton identité à l'application arrière, qui cherche ton adresse dans la liste des accès. Rien n'est lu ni écrit dans les feuilles.</p>
+  <div id="bouton"></div>
+  <div id="resultat">En attente de connexion.</div>
+  <p><small>Le jeton Google n'est envoyé qu'à l'application arrière et n'est ni affiché ni conservé par cette page.</small></p>
+</main>
+<script>
+(function () {
+  var CLIENT_ID = '841663594728-h4it68rr6h3rj6nd3jj59lavh906kl83.apps.googleusercontent.com';
+  var URL_ARRIERE = 'https://script.google.com/macros/s/AKfycbyZ_4Nn10m-XuAJpWnq_3He8Rk9CQA_gJXcElHQt_l3HJU5ixsUNl2NF5XO0OLe5VMWtw/exec';
+  var MESSAGES = {
+    ACCES_REFUSE: 'Accès refusé : ce compte Google n’est pas dans la liste des accès, ou le jeton est refusé.',
+    OCCUPE: 'Une autre action est en cours. Réessaie dans un instant.',
+    ERREUR_TECHNIQUE: 'Erreur technique côté application arrière.'
+  };
+  function afficher(texte, classe) {
+    var r = document.getElementById('resultat');
+    r.textContent = texte;
+    r.className = classe || '';
+  }
+  function apresConnexion(reponse) {
+    var jeton = reponse && reponse.credential;
+    if (!jeton) { afficher('Connexion Google annulée ou sans jeton.', 'erreur'); return; }
+    afficher('Vérification en cours...', '');
+    var debut = Date.now();
+    fetch(URL_ARRIERE, {
+      method: 'POST',
+      // text/plain : requête simple, pas de pré-vérification CORS
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ jeton: jeton, action: 'identite', args: [] })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        var duree = ((Date.now() - debut) / 1000).toFixed(1) + ' s';
+        if (r && r.ok === true) {
+          afficher('Connecté.\nPrénom : ' + r.prenom + '\nRôle : ' + r.role + ' (niveau ' + r.niveau + ')\nTemps de réponse : ' + duree, 'ok');
+        } else {
+          afficher((MESSAGES[r && r.code] || 'Refus : ' + (r && r.code)) + '\nTemps de réponse : ' + duree, 'erreur');
+        }
+      })
+      .catch(function () {
+        afficher('Pas de réponse lisible de l’application arrière (réseau, ou appel bloqué par le navigateur).', 'erreur');
+      });
+  }
+  function demarrer() {
+    if (!window.google || !google.accounts || !google.accounts.id) { setTimeout(demarrer, 200); return; }
+    google.accounts.id.initialize({ client_id: CLIENT_ID, callback: apresConnexion, auto_select: false });
+    google.accounts.id.renderButton(document.getElementById('bouton'), { theme: 'outline', size: 'large', locale: 'fr' });
+  }
+  var s = document.createElement('script');
+  s.src = 'https://accounts.google.com/gsi/client';
+  s.async = true;
+  s.onload = demarrer;
+  s.onerror = function () { afficher('Le service de connexion Google n’a pas pu être chargé.', 'erreur'); };
+  document.head.appendChild(s);
+})();
+</script>
+</body>
+</html>
