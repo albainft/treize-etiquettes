@@ -105,7 +105,8 @@
 	}
 
 	function appliquer(e: Etat) {
-		etat = e;
+		// Reponse legere (scan, retrait, vidage) : pas de ventes du jour, on garde les precedentes.
+		etat = { ...e, ventes: e.ventes ?? etat?.ventes };
 		panierMax = e.panierMax ?? panierMax;
 		if (!canal) canal = e.canaux?.boutique ?? 'Treize';
 		const avant = new Map(lignes.map((l) => [l.id, l]));
