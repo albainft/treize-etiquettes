@@ -18,7 +18,15 @@ export const MESSAGES: Record<string, string> = {
 	AMBIGU: 'Plusieurs lignes portent cet identifiant : ne pas supprimer ici, prévenir le propriétaire.',
 	VENDU: 'Pièce vendue : suppression impossible.',
 	DANS_PANIER: 'Pièce dans le panier de la caisse : suppression impossible.',
-	DANS_VENTE: 'Pièce citée dans une vente : suppression impossible.'
+	DANS_VENTE: 'Pièce citée dans une vente : suppression impossible.',
+	CODE_INVALIDE: 'Code illisible.',
+	SCAN_QR_COLONNES: 'La feuille de scan est incomplète : préviens le responsable.',
+	PANIER_CHANGE: 'Le panier a changé entre-temps. Vérifie-le puis valide à nouveau.',
+	PANIER_VIDE: 'Le panier est vide.',
+	NON_VENDABLE: "Une pièce n'est plus vendable :",
+	PRIX: 'Prix à vérifier.',
+	PAIEMENT: 'Choisis un moyen de paiement.',
+	VENTE_INTROUVABLE: 'Vente introuvable.'
 };
 
 export class ErreurTreize extends Error {
@@ -36,13 +44,30 @@ interface GoogleId {
 		id: {
 			initialize(o: { client_id: string; callback: (r: { credential?: string }) => void; auto_select?: boolean }): void;
 			renderButton(el: HTMLElement, o: Record<string, string>): void;
+			prompt?(): void;
 		};
 	};
 }
 
+const CLE_STOCKAGE = 'treize:jeton';
 let jeton = '';
 let expire = 0;
 let initialise = false;
+
+function garder(j: string) {
+	try {
+		sessionStorage.setItem(CLE_STOCKAGE, j);
+	} catch {
+		// stockage indisponible : la connexion reste en memoire
+	}
+}
+function oublier() {
+	try {
+		sessionStorage.removeItem(CLE_STOCKAGE);
+	} catch {
+		// rien a faire
+	}
+}
 const ecouteurs = new Set<(connecte: boolean) => void>();
 
 /** Appele a chaque changement d'etat de connexion (connexion reussie, expiration, refus). */
@@ -68,6 +93,20 @@ export function connecte(): boolean {
 	return !!jeton && Date.now() < expire - 30_000;
 }
 
+// Rechargement de la page : on reprend le jeton de la session tant qu'il n'a pas expire.
+try {
+	const garde = sessionStorage.getItem(CLE_STOCKAGE);
+	if (garde) {
+		const exp = expirationDe(garde);
+		if (Date.now() < exp - 30_000) {
+			jeton = garde;
+			expire = exp;
+		} else oublier();
+	}
+} catch {
+	// stockage indisponible
+}
+
 function chargerGoogle(): Promise<GoogleId> {
 	const g = (window as unknown as { google?: GoogleId }).google;
 	if (g?.accounts?.id) return Promise.resolve(g);
@@ -91,22 +130,26 @@ export async function afficherConnexion(el: HTMLElement): Promise<void> {
 	if (!initialise) {
 		g.accounts.id.initialize({
 			client_id: CLIENT_ID,
-			auto_select: false,
+			auto_select: true,
 			callback: (r) => {
 				if (!r.credential) return;
 				jeton = r.credential;
 				expire = expirationDe(jeton);
+				garder(jeton);
 				notifier(true);
 			}
 		});
 		initialise = true;
 	}
 	g.accounts.id.renderButton(el, { theme: 'outline', size: 'medium', locale: 'fr' });
+	// Connexion automatique si la session Google du navigateur est deja ouverte et deja autorisee.
+	g.accounts.id.prompt?.();
 }
 
 /** Appelle une action de l'arriere. Leve ErreurTreize si le reseau ou l'arriere refuse. */
 export async function appeler<T = Record<string, unknown>>(action: string, args: unknown[] = []): Promise<T> {
 	if (!connecte()) {
+		oublier();
 		notifier(false);
 		throw new ErreurTreize('ACCES_REFUSE', MESSAGES.ACCES_REFUSE);
 	}
@@ -132,6 +175,7 @@ export async function appeler<T = Record<string, unknown>>(action: string, args:
 		if (code === 'ACCES_REFUSE') {
 			jeton = '';
 			expire = 0;
+			oublier();
 			notifier(false);
 		}
 		throw new ErreurTreize(code, MESSAGES[code] ?? 'Refus : ' + code, corps);

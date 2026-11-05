@@ -7,17 +7,25 @@ class Session {
 	erreur = $state('');
 
 	constructor() {
+		const reprendre = () => {
+			this.erreur = '';
+			lireIdentite()
+				.then((i) => (this.identite = i))
+				.catch((e: Error) => (this.erreur = e.message));
+		};
 		ecouterConnexion((etat) => {
 			this.connecte = etat && connecte();
 			if (!etat) {
 				this.identite = null;
 				return;
 			}
-			this.erreur = '';
-			lireIdentite()
-				.then((i) => (this.identite = i))
-				.catch((e: Error) => (this.erreur = e.message));
+			reprendre();
 		});
+		// Rechargement de la page avec un jeton encore valide : connexion reprise sans clic.
+		if (connecte()) {
+			this.connecte = true;
+			reprendre();
+		}
 	}
 
 	/** Niveau de l'utilisateur : 0 tant que l'identite n'est pas connue. */
