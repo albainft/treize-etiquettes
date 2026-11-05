@@ -130,6 +130,17 @@ button:disabled {
 	background: var(--panel-2);
 }
 
+.btn.danger {
+	background: #b3261e;
+	border-color: #b3261e;
+	color: #fff;
+}
+
+.btn.danger:hover:not(:disabled) {
+	background: color-mix(in oklab, #b3261e, black 10%);
+	border-color: color-mix(in oklab, #b3261e, black 10%);
+}
+
 .btn.icon {
 	width: 34px;
 	padding: 0;
