@@ -1,0 +1,268 @@
+{
+	"basic": {
+		"writes": 20,
+		"sha256": "bcf80e0f2626964c9ca2198373ea0008f16c84b9ca074ba9a4a00daae0baed7c",
+		"expect": {
+			"result": "RESULT true 0"
+		}
+	},
+	"long-copies": {
+		"writes": 56,
+		"sha256": "8ecf3011bec99663382ea05c2c616314dcb4603f3072782e56cf6b20de7274d3",
+		"expect": {
+			"result": "RESULT true 0"
+		}
+	},
+	"two-pages-copies": {
+		"writes": 76,
+		"sha256": "f0fcf6caf28bed59de59640190adb0313d0e8df88ba73909656edede2bddca4f",
+		"expect": {
+			"result": "RESULT true 0"
+		}
+	},
+	"noise-multi-frame": {
+		"writes": 83,
+		"sha256": "3db5633ae31d0a6e362f1e5b37d23c7069eb0b2be27d81b9bc8584884b86d045",
+		"expect": {
+			"result": "RESULT true 0"
+		}
+	},
+	"continuous": {
+		"writes": 27,
+		"sha256": "b365f6ba9808f7829817527c6b57a4dae5b58bb8b76154fdf38216c55b321f43",
+		"expect": {
+			"result": "RESULT true 0"
+		}
+	},
+	"continuous-over-50": {
+		"writes": 27,
+		"sha256": "b56cbabee2f5e76de22d887201db4d524038e96c0dd704a0fc1cd7597e7da466",
+		"expect": {
+			"result": "RESULT true 0"
+		}
+	},
+	"two-full-buffers": {
+		"writes": 27,
+		"sha256": "8cde92a0514e5909171eaf2dbf632f845766a1690b16bcd6a104a6157efe5d0d",
+		"expect": {
+			"result": "RESULT true 0"
+		}
+	},
+	"offsets": {
+		"writes": 20,
+		"sha256": "0f5057f822876e0e65023a6aac38369036217d628825b1992e252d7c491fb052",
+		"expect": {
+			"result": "RESULT true 0"
+		}
+	},
+	"dpi-7.9": {
+		"writes": 20,
+		"sha256": "d980824db4bc4cb6834022277cf1e2f08b557879c2cf43310046f028199fccfb",
+		"expect": {
+			"result": "RESULT true 0"
+		}
+	},
+	"dpi-7.9-continuous": {
+		"writes": 20,
+		"sha256": "cba09f6e8de0b14ec52dd66a3f40ccdcf63519cc7d3c25ef1f8b6244e5b0abed",
+		"expect": {
+			"result": "RESULT true 0"
+		}
+	},
+	"blank": {
+		"writes": 20,
+		"sha256": "10e6061f1bbd95e16ad8a60325addd13e8eb8073f59230d16ffbab4d3ff7132f",
+		"expect": {
+			"result": "RESULT true 0"
+		}
+	},
+	"cover-open": {
+		"writes": 8,
+		"sha256": "81cd052a20bc653490641b272d2053d9ca16f3d3ad5ee32febe68b1eaab433ca",
+		"expect": {
+			"error": "Cover is open"
+		}
+	},
+	"no-tape": {
+		"writes": 8,
+		"sha256": "81cd052a20bc653490641b272d2053d9ca16f3d3ad5ee32febe68b1eaab433ca",
+		"expect": {
+			"error": "No label tape installed"
+		}
+	},
+	"low-battery": {
+		"writes": 8,
+		"sha256": "81cd052a20bc653490641b272d2053d9ca16f3d3ad5ee32febe68b1eaab433ca",
+		"expect": {
+			"error": "Low battery, please charge"
+		}
+	},
+	"used-up": {
+		"writes": 8,
+		"sha256": "81cd052a20bc653490641b272d2053d9ca16f3d3ad5ee32febe68b1eaab433ca",
+		"expect": {
+			"error": "Labels used up"
+		}
+	},
+	"unrecognized": {
+		"writes": 20,
+		"sha256": "8398bcea0b0f625e0f215f9d7160427cb1610d4c4753a2bd1683b40559f9d91a",
+		"expect": {
+			"result": "RESULT true 0"
+		}
+	},
+	"media-die-cut": {
+		"writes": 2,
+		"sha256": "8eb2b8bba8b489bb76a6f7a9ce628ea73e5805583b216eb708a39822b28b2c47",
+		"expect": {
+			"labelId": 25004,
+			"paperType": 1,
+			"widthMm": 12,
+			"lengthMm": 40,
+			"gap": 3,
+			"uuid": "049A3B12C45E80"
+		}
+	},
+	"media-continuous": {
+		"writes": 2,
+		"sha256": "8eb2b8bba8b489bb76a6f7a9ce628ea73e5805583b216eb708a39822b28b2c47",
+		"expect": {
+			"labelId": 25001,
+			"paperType": 0,
+			"widthMm": 15,
+			"lengthMm": 50,
+			"gap": 3,
+			"uuid": "049A3B12C45E80"
+		}
+	},
+	"media-custom-no-chip": {
+		"writes": 2,
+		"sha256": "8eb2b8bba8b489bb76a6f7a9ce628ea73e5805583b216eb708a39822b28b2c47",
+		"expect": {
+			"labelId": 21930,
+			"paperType": 1,
+			"widthMm": 12,
+			"lengthMm": 30,
+			"gap": 2,
+			"uuid": "049A3B12C45E80"
+		}
+	},
+	"state-ok": {
+		"writes": 1,
+		"sha256": "c43d1c172ef316eef1222dc574c93a67b452f0751f23ad6e206079bc55b1c17a",
+		"expect": {
+			"errors": [],
+			"warnings": [],
+			"charging": false,
+			"batteryLevel": 4
+		}
+	},
+	"state-one-bar": {
+		"writes": 1,
+		"sha256": "c43d1c172ef316eef1222dc574c93a67b452f0751f23ad6e206079bc55b1c17a",
+		"expect": {
+			"errors": [],
+			"warnings": [
+				"Low battery, please charge"
+			],
+			"charging": false,
+			"batteryLevel": 1
+		}
+	},
+	"state-low-battery-flag": {
+		"writes": 1,
+		"sha256": "c43d1c172ef316eef1222dc574c93a67b452f0751f23ad6e206079bc55b1c17a",
+		"expect": {
+			"errors": [
+				"Low battery, please charge"
+			],
+			"warnings": [],
+			"charging": false,
+			"batteryLevel": 0
+		}
+	},
+	"state-cover": {
+		"writes": 1,
+		"sha256": "c43d1c172ef316eef1222dc574c93a67b452f0751f23ad6e206079bc55b1c17a",
+		"expect": {
+			"errors": [
+				"Cover is open"
+			],
+			"warnings": [],
+			"charging": false,
+			"batteryLevel": 3
+		}
+	},
+	"state-no-tape": {
+		"writes": 1,
+		"sha256": "c43d1c172ef316eef1222dc574c93a67b452f0751f23ad6e206079bc55b1c17a",
+		"expect": {
+			"errors": [
+				"No label tape installed"
+			],
+			"warnings": [],
+			"charging": false,
+			"batteryLevel": 2
+		}
+	},
+	"state-read-error": {
+		"writes": 1,
+		"sha256": "c43d1c172ef316eef1222dc574c93a67b452f0751f23ad6e206079bc55b1c17a",
+		"expect": {
+			"errors": [
+				"No label tape installed"
+			],
+			"warnings": [],
+			"charging": false,
+			"batteryLevel": 2
+		}
+	},
+	"state-used-up-charging": {
+		"writes": 1,
+		"sha256": "c43d1c172ef316eef1222dc574c93a67b452f0751f23ad6e206079bc55b1c17a",
+		"expect": {
+			"errors": [
+				"Labels used up"
+			],
+			"warnings": [],
+			"charging": true,
+			"batteryLevel": 2
+		}
+	},
+	"state-unrecognized": {
+		"writes": 1,
+		"sha256": "c43d1c172ef316eef1222dc574c93a67b452f0751f23ad6e206079bc55b1c17a",
+		"expect": {
+			"errors": [],
+			"warnings": [
+				"Label not recognized"
+			],
+			"charging": false,
+			"batteryLevel": 4
+		}
+	},
+	"state-ignored-bits": {
+		"writes": 1,
+		"sha256": "c43d1c172ef316eef1222dc574c93a67b452f0751f23ad6e206079bc55b1c17a",
+		"expect": {
+			"errors": [],
+			"warnings": [],
+			"charging": false,
+			"batteryLevel": 4
+		}
+	},
+	"ends-over-50": {
+		"writes": 27,
+		"sha256": "01118a46177371bf53b9b166b401f9df0c5489672d076fb211a85ee7c7ea5295",
+		"expect": {
+			"result": "RESULT true 0"
+		}
+	},
+	"ends-continuous-109": {
+		"writes": 34,
+		"sha256": "ee7cd7b67d6fdb00d35934635c346a1d47c2495cb0761324a9a003e5f9099f58",
+		"expect": {
+			"result": "RESULT true 0"
+		}
+	}
+}
