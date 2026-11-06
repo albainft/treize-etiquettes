@@ -1,7 +1,7 @@
 /** Acces a l'application arriere TREIZE depuis le site (connexion Google, appels d'actions). */
 import type { Donnees } from './design/lot';
 
-const CLIENT_ID = '841663594728-h4it68rr6h3rj6nd3jj59lavh906kl83.apps.googleusercontent.com';
+const CLIENT_ID = '799787296285-oteih5behskdepdn5nt14359ccdfu6v4.apps.googleusercontent.com';
 const URL_ARRIERE =
 	'https://script.google.com/macros/s/AKfycbyZ_4Nn10m-XuAJpWnq_3He8Rk9CQA_gJXcElHQt_l3HJU5ixsUNl2NF5XO0OLe5VMWtw/exec';
 
