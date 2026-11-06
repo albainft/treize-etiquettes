@@ -8,6 +8,8 @@
 	import QuickMode from './lib/components/QuickMode.svelte';
 	import LotMode from './lib/components/LotMode.svelte';
 	import NavTreize from './lib/components/NavTreize.svelte';
+	import ConnexionTreize from './lib/components/ConnexionTreize.svelte';
+	import { session } from './lib/stores/session.svelte';
 	import PageAjout from './lib/components/PageAjout.svelte';
 	import PageSupprimer from './lib/components/PageSupprimer.svelte';
 	import PageCaisse from './lib/components/PageCaisse.svelte';
@@ -31,7 +33,12 @@
 	<div class="racine">
 		<NavTreize />
 		<div class="contenu">
-			{#if pages.courante === 'ajout'}
+			{#if !session.connecte}
+				<div class="entree">
+					<h2>TREIZE</h2>
+					<ConnexionTreize />
+				</div>
+			{:else if pages.courante === 'ajout'}
 				<PageAjout />
 			{:else if pages.courante === 'caisse'}
 				<PageCaisse />
@@ -74,6 +81,18 @@
 		flex: 1;
 		min-height: 0;
 		overflow: auto;
+	}
+
+	.entree {
+		display: grid;
+		gap: 12px;
+		max-width: 420px;
+		margin: 48px auto;
+		padding: 0 16px;
+	}
+
+	.entree h2 {
+		margin: 0;
 	}
 
 	.app {
