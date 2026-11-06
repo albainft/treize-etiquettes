@@ -58,6 +58,7 @@
 	let erreur = $state(false);
 	let succes = $state('');
 	let occupe = $state(false);
+	let saisieId = $state('');
 	let videArme = $state(false);
 	let annuleArme = $state('');
 	let ancienneId = $state('');
@@ -202,6 +203,16 @@
 		void envoyer(code);
 	}
 
+	// Saisie directe d'un ID, sans camera : meme chemin serveur que le scan (caisseScanner).
+	function ajouterSaisie(ev: SubmitEvent) {
+		ev.preventDefault();
+		const code = saisieId.trim().toUpperCase();
+		if (!code || occupe || !session.connecte) return;
+		if (!FORMAT_ID.test(code)) return dire('ID non reconnu (ex. FRI-VES-0001).', true);
+		saisieId = '';
+		void envoyer(code);
+	}
+
 	async function retirer(id: string) {
 		succes = '';
 		const e = await action('caisseRetirer', [id, 'leger']);
@@ -284,6 +295,10 @@
 	<ConnexionTreize />
 	{#if session.connecte}
 		<ScanCamera onCode={surCode} />
+		<form class="row" onsubmit={ajouterSaisie}>
+			<input class="input" placeholder="ID de la pièce (FRI-VES-0001)" maxlength="30" autocomplete="off" autocapitalize="characters" aria-label="ID de la pièce" bind:value={saisieId} />
+			<button class="btn" type="submit" disabled={occupe || !saisieId.trim()}>Ajouter</button>
+		</form>
 		<p class="msg" class:err={erreur} role="status">{message}</p>
 		{#if succes}<p class="succes" role="status">{succes}</p>{/if}
 
