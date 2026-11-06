@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { appeler, ErreurTreize } from '../treize';
 	import { session } from '../stores/session.svelte';
-	import ConnexionTreize from './ConnexionTreize.svelte';
 
 	interface Categorie {
 		code: string;
@@ -256,7 +255,6 @@
 
 <div class="page">
 	<h2>Ajouter une pièce</h2>
-	<ConnexionTreize />
 	{#if bandeau}<div class="bandeau" role="alert">{bandeau}</div>{/if}
 
 	{#if session.connecte && succes}

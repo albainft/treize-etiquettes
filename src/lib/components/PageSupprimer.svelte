@@ -2,7 +2,6 @@
 	import { onDestroy } from 'svelte';
 	import { appeler, ErreurTreize, MESSAGES } from '../treize';
 	import { session } from '../stores/session.svelte';
-	import ConnexionTreize from './ConnexionTreize.svelte';
 
 	interface Fiche {
 		id: string;
@@ -82,7 +81,6 @@
 
 <div class="page">
 	<h2>Supprimer une pièce</h2>
-	<ConnexionTreize />
 	{#if session.connecte}
 		<div class="row">
 			<input class="input" placeholder="Identifiant, ex. FRI-VES-0001" bind:value={saisie} onkeydown={(e) => e.key === 'Enter' && chercher()} disabled={occupe} />

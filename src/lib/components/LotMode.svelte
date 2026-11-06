@@ -14,7 +14,6 @@
 	import type { LabelSpec } from '../printer/types';
 	import { chargerPieces } from '../treize';
 	import { session } from '../stores/session.svelte';
-	import ConnexionTreize from './ConnexionTreize.svelte';
 
 	const KEY = 'treize-etiquettes:lot';
 	const APERCU_MAX = 6;
@@ -325,7 +324,6 @@
 
 		<section class="card">
 			<h3>Pieces</h3>
-			{#if !session.connecte}<ConnexionTreize />{/if}
 			<div class="depot">
 				{#if session.connecte}<button class="btn sm" onclick={chargerTreize} disabled={treizeEnCours}>{treizeEnCours ? 'Chargement...' : 'Charger depuis TREIZE'}</button>{/if}
 				{#if treizeMsg}<span class="aide">{treizeMsg}</span>{/if}

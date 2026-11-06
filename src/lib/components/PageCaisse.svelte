@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { appeler, ErreurTreize } from '../treize';
 	import { session } from '../stores/session.svelte';
-	import ConnexionTreize from './ConnexionTreize.svelte';
 	import ScanCamera from './ScanCamera.svelte';
 
 	// Caisse du site : scan par camera, panier, validation de la vente, ventes du jour, annulation.
@@ -292,7 +291,6 @@
 
 <div class="page">
 	<h2>Caisse</h2>
-	<ConnexionTreize />
 	{#if session.connecte}
 		<ScanCamera onCode={surCode} />
 		<form class="row" onsubmit={ajouterSaisie}>
